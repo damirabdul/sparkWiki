@@ -34,32 +34,30 @@ object SparkSessionExample {
 
     val dataFrame = session
       .read
-      .text("src/main/resources/pageviews-20170901-000000.txt")
+      .text("src/main/resources/pageviews*")
       .map(d => {
         val row = d.getString(0).split(" ")
         Wiki(row(0), row(1), row(2).toInt, row(3).toInt)
       })
       .toDF()
 
-    println("Total count " + dataFrame.count())
-
     val filtered = dataFrame
       .filter(
         row => row.getString(0).equals("en")
+          && !row.getString(1).eq("")
           && !excludedWords.exists(row.getString(1).startsWith)
           && !startWithLowerCase(row.getString(1))
           && !excludedExtensions.exists(row.getString(1).endsWith)
           && !excludedMediaWiki.contains(row.getString(1))
       )
+      .groupBy($"title")
+      .sum()
       .sort(
-        $"accesses".desc
+        $"sum(accesses)".desc
       )
-      .select($"title", $"accesses")
+      .select($"title", $"sum(accesses)")
 
-
-    filtered.show()
-
-    println("Filtered count " + filtered.count())
+    filtered.write.csv("src/main/resources/output")
 
   }
 
